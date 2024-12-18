@@ -6,12 +6,13 @@ import { Layout, Modal, Form, Input, Select, Button, message } from "antd";
 import NavBar from "./components/NavBar";
 import MarketView from "./pages/MarketView";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import DeveloperPage from "./pages/DeveloperPage";
 import MyNFTs from "./pages/MyNFTs";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
-const marketplaceAddr = "0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb";
+const marketplaceAddr = "0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9";
 
 function App() {
   const { signAndSubmitTransaction } = useWallet();
@@ -30,8 +31,14 @@ function App() {
         type: "entry_function_payload",
         function: `${marketplaceAddr}::NFTMarketplace::mint_nft`,
         type_arguments: [],
-        arguments: [nameVector, descriptionVector, uriVector, values.rarity],
-      };
+        arguments: [
+          marketplaceAddr, // Add marketplace address as the first argument
+          nameVector, 
+          descriptionVector, 
+          uriVector, 
+          values.rarity
+        ],
+      };      
 
       const txnResponse = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
       await client.waitForTransaction(txnResponse.hash);
@@ -52,6 +59,8 @@ function App() {
         <Routes>
           <Route path="/" element={<MarketView marketplaceAddr={marketplaceAddr} />} />
           <Route path="/my-nfts" element={<MyNFTs />} />
+          <Route path="/developer" element={<DeveloperPage />} /> {/* Add Developer Page */}
+
         </Routes>
 
         <Modal
@@ -76,6 +85,8 @@ function App() {
                 <Select.Option value={2}>Uncommon</Select.Option>
                 <Select.Option value={3}>Rare</Select.Option>
                 <Select.Option value={4}>Epic</Select.Option>
+                <Select.Option value={5}>Legendary</Select.Option>
+
               </Select>
             </Form.Item>
             <Form.Item>

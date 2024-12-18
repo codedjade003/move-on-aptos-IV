@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal } from "antd";
+import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal, Input } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const { Title } = Typography;
 const { Meta } = Card;
+const yourBackgroundImage = "/images/aptos_wallpaper.jpg";
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
 
@@ -17,6 +18,7 @@ type NFT = {
   price: number;
   for_sale: boolean;
   rarity: number;
+  creator: string;
 };
 
 interface MarketViewProps {
@@ -28,13 +30,15 @@ const rarityColors: { [key: number]: string } = {
   2: "blue",
   3: "purple",
   4: "orange",
+  5: "yellow"
 };
 
 const rarityLabels: { [key: number]: string } = {
   1: "Common",
   2: "Uncommon",
   3: "Rare",
-  4: "Super Rare",
+  4: "Epic",
+  5: "Legendary"
 };
 
 const truncateAddress = (address: string, start = 6, end = 4) => {
@@ -48,8 +52,6 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
-  const [isBuyModalVisible, setIsBuyModalVisible] = useState(false);
-  const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
 
   useEffect(() => {
     handleFetchNfts(undefined);
@@ -59,7 +61,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     try {
       const response = await client.getAccountResource(
         marketplaceAddr,
-        "0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb::NFTMarketplace::Marketplace"
+        "0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9::NFTMarketplace::Marketplace"
       );
       const nftList = (response.data as { nfts: NFT[] }).nfts;
 
@@ -79,7 +81,6 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         price: nft.price / 100000000,
       }));
 
-      // Filter NFTs based on `for_sale` property and rarity if selected
       const filteredNfts = decodedNfts.filter(
         (nft) => nft.for_sale && (selectedRarity === undefined || nft.rarity === selectedRarity)
       );
@@ -92,164 +93,236 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     }
   };
 
-  const handleBuyClick = (nft: NFT) => {
-    setSelectedNft(nft);
-    setIsBuyModalVisible(true);
-  };
+  const paginatedNfts = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleCancelBuy = () => {
+  const [isBuyModalVisible, setIsBuyModalVisible] = useState(false);
+const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
+
+const handleBuyClick = (nft: NFT) => {
+  setSelectedNft(nft);
+  setIsBuyModalVisible(true);
+};
+
+const handleCancelBuy = () => {
+  setIsBuyModalVisible(false);
+  setSelectedNft(null);
+};
+
+const handleConfirmPurchase = async () => {
+  if (!selectedNft) return;
+
+  try {
+    const priceInOctas = selectedNft.price * 100000000;
+
+    const entryFunctionPayload = {
+      type: "entry_function_payload",
+      function: `${marketplaceAddr}::NFTMarketplace::purchase_nft`,
+      type_arguments: [],
+      arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toString()],
+    };
+
+    const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
+    await client.waitForTransaction(response.hash);
+
+    message.success("NFT purchased successfully!");
     setIsBuyModalVisible(false);
-    setSelectedNft(null);
+    await handleFetchNfts(undefined); // Correct way to refresh NFT list
+  } catch (error) {
+    console.error("Error purchasing NFT:", error);
+    message.error("Failed to purchase NFT.");
+  }
+};
+
+const [isTipModalVisible, setIsTipModalVisible] = useState(false);
+  const [tipAmount, setTipAmount] = useState<string>("");
+  const [selectedTipNFT, setSelectedTipNFT] = useState<NFT | null>(null);
+
+  const handleTipClick = (nft: NFT) => {
+    setSelectedTipNFT(nft);
+    setIsTipModalVisible(true);
   };
-
-  const handleConfirmPurchase = async () => {
-    if (!selectedNft) return;
-
+  
+  const handleConfirmTip = async () => {
+    if (!selectedTipNFT || !tipAmount) {
+      message.error("Please select an NFT and enter a valid tip amount.");
+      return;
+    }
+  
     try {
-      const priceInOctas = selectedNft.price * 100000000;
-
+      // Convert the tip amount to Octas (smallest APT unit)
+      const tipInOctas = BigInt(Math.floor(parseFloat(tipAmount) * 100000000));
+  
+      // Ensure the tip amount is within u64 limits
+      if (tipInOctas <= 0 || tipInOctas > BigInt("18446744073709551615")) {
+        message.error("Tip amount is out of allowed range.");
+        return;
+      }
+  
+      // Prepare transaction payload
       const entryFunctionPayload = {
         type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::purchase_nft`,
+        function: `${marketplaceAddr}::NFTMarketplace::tip_creator`,
         type_arguments: [],
-        arguments: [marketplaceAddr, selectedNft.id.toString(), priceInOctas.toString()],
+        arguments: [
+          marketplaceAddr,                     // Marketplace address
+          selectedTipNFT.id.toString(),       // NFT ID
+          tipInOctas.toString(),              // Tip amount in Octas
+        ],
       };
-
+  
+      // Submit transaction
       const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
       await client.waitForTransaction(response.hash);
-
-      message.success("NFT purchased successfully!");
-      setIsBuyModalVisible(false);
-      handleFetchNfts(rarity === 'all' ? undefined : rarity); // Refresh NFT list
+  
+      message.success("Tip sent successfully!");
+      setIsTipModalVisible(false);
+      setTipAmount(""); // Reset the form
     } catch (error) {
-      console.error("Error purchasing NFT:", error);
-      message.error("Failed to purchase NFT.");
+      console.error("Error sending tip:", error);
+      message.error("Failed to send tip.");
     }
   };
+  
+  
+  
+  const handleCancelTip = () => {
+    setIsTipModalVisible(false);
+    setTipAmount("");
+    setSelectedTipNFT(null);
+  };
 
-  const paginatedNfts = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div
-      style={{
-        textAlign: "center",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}
-    >
+    style={{
+      textAlign: "center",
+      backgroundImage: `url(${yourBackgroundImage})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      padding: "20px",
+      minHeight: "100vh",
+    }}
+  >
+    <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center",}}>
       <Title level={2} style={{ marginBottom: "20px" }}>Marketplace</Title>
-
-      {/* Filter Buttons */}
-      <div style={{ marginBottom: "20px" }}>
-        <Radio.Group
-          value={rarity}
-          onChange={(e) => {
-            const selectedRarity = e.target.value;
-            setRarity(selectedRarity);
-            handleFetchNfts(selectedRarity === 'all' ? undefined : selectedRarity);
-          }}
-          buttonStyle="solid"
-        >
-          <Radio.Button value="all">All</Radio.Button>
-          <Radio.Button value={1}>Common</Radio.Button>
-          <Radio.Button value={2}>Uncommon</Radio.Button>
-          <Radio.Button value={3}>Rare</Radio.Button>
-          <Radio.Button value={4}>Super Rare</Radio.Button>
-        </Radio.Group>
-      </div>
-
-      {/* Card Grid */}
-      <Row
-        gutter={[24, 24]}
-        style={{
-          marginTop: 20,
-          width: "100%",
-          display: "flex",
-          justifyContent: "center", // Center row content
-          flexWrap: "wrap",
+      <Radio.Group
+        value={rarity}
+        onChange={(e) => {
+          const selectedRarity = e.target.value;
+          setRarity(selectedRarity);
+          handleFetchNfts(selectedRarity === 'all' ? undefined : selectedRarity);
         }}
+        buttonStyle="solid"
       >
-        {paginatedNfts.map((nft) => (
-          <Col
-            key={nft.id}
-            xs={24} sm={12} md={8} lg={6} xl={6}
-            style={{
-              display: "flex",
-              justifyContent: "center", // Center the single card horizontally
-              alignItems: "center", // Center content in both directions
-            }}
-          >
-            <Card
-              hoverable
-              style={{
-                width: "100%", // Make the card responsive
-                maxWidth: "240px", // Limit the card width on larger screens
-                margin: "0 auto",
-              }}
-              cover={<img alt={nft.name} src={nft.uri} />}
-              actions={[
-                <Button type="link" onClick={() => handleBuyClick(nft)}>
-                  Buy
-                </Button>
-              ]}
-            >
-              {/* Rarity Tag */}
-              <Tag
-                color={rarityColors[nft.rarity]}
-                style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "10px" }}
-              >
-                {rarityLabels[nft.rarity]}
-              </Tag>
+        <Radio.Button value="all">All</Radio.Button>
+        <Radio.Button value={1}>Common</Radio.Button>
+        <Radio.Button value={2}>Uncommon</Radio.Button>
+        <Radio.Button value={3}>Rare</Radio.Button>
+        <Radio.Button value={4}>Super Rare</Radio.Button>
+        <Radio.Button value={5}>Legendary</Radio.Button>
+      </Radio.Group>
 
-              <Meta title={nft.name} description={`Price: ${nft.price} APT`} />
-              <p>{nft.description}</p>
-              <p>ID: {nft.id}</p>
-              <p>Owner: {truncateAddress(nft.owner)}</p>
-              <p><strong>Royalties: </strong>5%</p> {/* Display fixed royalties of 5% */}
-            </Card>
+      <Row gutter={[24, 24]} style={{ marginTop: 20, width: "100%", justifyContent: "center", flexWrap: "wrap" }}>
+        {paginatedNfts.map((nft) => (
+          <Col key={nft.id} xs={24} sm={12} md={8} lg={6} xl={6}>
+
+            <Card
+  hoverable
+  cover={<img alt={nft.name} src={nft.uri} />}
+  style={{ maxWidth: "300px", margin: "0 auto", textAlign: "left" }}
+>
+  <Meta title={nft.name} description={`Price: ${nft.price} APT`} />
+  <p><strong>ID:</strong> {nft.id}</p>
+  <p><strong>Description:</strong> {nft.description}</p>
+  <p>
+    <strong>Rarity: </strong>
+    <Tag color={rarityColors[nft.rarity]}>
+      {rarityLabels[nft.rarity]}
+    </Tag>
+  </p>
+  <p><strong>For Sale:</strong> {nft.for_sale ? "Yes" : "No"}</p>
+  <p><strong>Owner:</strong> {truncateAddress(nft.owner)}</p>
+
+  <Row gutter={8} justify="center" style={{ marginTop: "10px" }}>
+    <Col span={12}>
+      <Button
+        type="primary"
+        block
+        onClick={() => handleBuyClick(nft)}
+        disabled={!nft.for_sale}
+      >
+        Buy
+      </Button>
+    </Col>
+    <Col span={12}>
+      <Button
+        type="default"
+        block
+        onClick={() => handleTipClick(nft)}
+      >
+        Tip Creator
+      </Button>
+    </Col>
+  </Row>
+</Card>
+
+
           </Col>
         ))}
+            <Modal
+            title="Tip Creator"
+            visible={isTipModalVisible}
+            onCancel={handleCancelTip}
+            footer={[
+              <Button key="cancel" onClick={handleCancelTip}>Cancel</Button>,
+              <Button key="confirm" type="primary" onClick={handleConfirmTip}>Confirm Tip</Button>,
+            ]}
+          >
+            {selectedTipNFT && (
+              <>
+                <p><strong>NFT Name:</strong> {selectedTipNFT.name}</p>
+                <p><strong>Creator Address:</strong> {selectedTipNFT.creator}</p>
+                <Input
+                  type="number"
+                  placeholder="Enter tip amount in APT"
+                  value={tipAmount}
+                  onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setTipAmount(e.target.value)}
+                  style={{ marginTop: 10 }}
+                />
+              </>
+            )}
+          </Modal>
       </Row>
 
-      {/* Pagination */}
-      <div style={{ marginTop: 30, marginBottom: 30 }}>
-        <Pagination
-          current={currentPage}
-          pageSize={pageSize}
-          total={nfts.length}
-          onChange={(page) => setCurrentPage(page)}
-          style={{ display: "flex", justifyContent: "center" }}
-        />
-      </div>
-
-      {/* Buy Modal */}
+      <Pagination current={currentPage} pageSize={pageSize} total={nfts.length} onChange={setCurrentPage} />
       <Modal
-        title="Purchase NFT"
-        visible={isBuyModalVisible}
-        onCancel={handleCancelBuy}
-        footer={[
-          <Button key="cancel" onClick={handleCancelBuy}>
-            Cancel
-          </Button>,
-          <Button key="confirm" type="primary" onClick={handleConfirmPurchase}>
-            Confirm Purchase
-          </Button>,
-        ]}
-      >
-        {selectedNft && (
-          <>
-            <p><strong>NFT ID:</strong> {selectedNft.id}</p>
-            <p><strong>Name:</strong> {selectedNft.name}</p>
-            <p><strong>Description:</strong> {selectedNft.description}</p>
-            <p><strong>Rarity:</strong> {rarityLabels[selectedNft.rarity]}</p>
-            <p><strong>Price:</strong> {selectedNft.price} APT</p>
-            <p><strong>Owner:</strong> {truncateAddress(selectedNft.owner)}</p>
-            <p><strong>Royalties:</strong> 5%</p> {/* Fixed royalties display */}
-          </>
-        )}
-      </Modal>
+      title="Confirm Purchase"
+      visible={isBuyModalVisible}
+      onCancel={handleCancelBuy}
+      footer={[
+        <Button key="cancel" onClick={handleCancelBuy}>
+          Cancel
+        </Button>,
+        <Button key="confirm" type="primary" onClick={handleConfirmPurchase}>
+          Confirm Purchase
+        </Button>,
+      ]}
+    >
+      {selectedNft && (
+        <>
+          <p><strong>NFT ID:</strong> {selectedNft.id}</p>
+          <p><strong>Name:</strong> {selectedNft.name}</p>
+          <p><strong>Description:</strong> {selectedNft.description}</p>
+          <p><strong>Rarity:</strong> {selectedNft.rarity}</p>
+          <p><strong>Price:</strong> {selectedNft.price} APT</p>
+          <p><strong>Owner:</strong> {truncateAddress(selectedNft.owner)}</p>
+        </>
+      )}
+    </Modal>
+
     </div>
+    </div>
+    
   );
 };
 

@@ -1,5 +1,5 @@
 // TODO# 1: Define Module and Marketplace Address
-address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
+address 0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9 {
 
     module NFTMarketplace {
         use 0x1::signer;
@@ -8,7 +8,7 @@ address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
         use 0x1::aptos_coin;
 
         // TODO# 2: Define NFT Structure
-        struct NFT has store, key {
+        struct NFT has store, key, drop {
             id: u64,
             owner: address,
             name: vector<u8>,
@@ -59,8 +59,8 @@ address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
 
 
         // TODO# 8: Mint New NFT
-        public entry fun mint_nft(account: &signer, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
-            let marketplace = borrow_global_mut<Marketplace>(signer::address_of(account));
+        public entry fun mint_nft(account: &signer, marketplace_addr: address, name: vector<u8>, description: vector<u8>, uri: vector<u8>, rarity: u8) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
             let nft_id = vector::length(&marketplace.nfts);
 
             let new_nft = NFT {
@@ -80,11 +80,11 @@ address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
 
         // TODO# 9: View NFT Details
             #[view]
-            public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8) acquires Marketplace {
+            public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8, address) acquires Marketplace {
                 let marketplace = borrow_global<Marketplace>(marketplace_addr);
                 let nft = vector::borrow(&marketplace.nfts, nft_id);
 
-                (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity)
+                (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity, nft.creator)
             } 
         
         // TODO# 10: List NFT for Sale
@@ -187,7 +187,7 @@ address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
             }
 
 
-        // TODO# 17: Retrieve NFTs for Sale
+        // TODO# 17: Retrieve NFTs for Owner
             #[view]
             public fun get_all_nfts_for_owner(marketplace_addr: address, owner_addr: address, limit: u64, offset: u64): vector<u64> acquires Marketplace {
                 let marketplace = borrow_global<Marketplace>(marketplace_addr);
@@ -281,40 +281,84 @@ address 0x3d4e2c8f9c63e6504958a2a29f91e7d19be232d700fbb930a5f430c626d2cabb {
             }
 
         // TODO# 22: Retrieve NFTs by Filters (rarity, price range)
+        // Retrieve NFTs by Filters (rarity, price range) - Without pagination
         #[view]
         public fun get_filtered_nfts(
             marketplace_addr: address, 
             rarity: u8,          // Filter by rarity (0 for no filter)
             min_price: u64,      // Minimum price (0 for no minimum)
-            max_price: u64,      // Maximum price (u64::MAX for no maximum)
-            limit: u64,          // Pagination limit
-            offset: u64          // Pagination offset
-        ): vector<ListedNFT> acquires Marketplace {
+            max_price: u64       // Maximum price (u64::MAX for no maximum)
+        ): vector<u64> acquires Marketplace {
             let marketplace = borrow_global<Marketplace>(marketplace_addr);
-            let filtered_nfts = vector::empty<ListedNFT>();
+            let filtered_nfts = vector::empty<u64>();
 
             let nfts_len = vector::length(&marketplace.nfts);
-            let end = min(offset + limit, nfts_len);
-            let mut_i = offset;
+            let mut_i = 0;
 
-            while (mut_i < end) {
+            while (mut_i < nfts_len) {
                 let nft = vector::borrow(&marketplace.nfts, mut_i);
-                
+
                 if (
                     nft.for_sale && 
                     (rarity == 0 || nft.rarity == rarity) &&  // Check rarity
                     nft.price >= min_price &&                 // Check min price
                     nft.price <= max_price                    // Check max price
                 ) {
-                    let listed_nft = ListedNFT { id: nft.id, price: nft.price, rarity: nft.rarity };
-                    vector::push_back(&mut filtered_nfts, listed_nft);
+                    vector::push_back(&mut filtered_nfts, nft.id);
                 };
-                
                 mut_i = mut_i + 1;
             };
 
             filtered_nfts
         }
+
+
+        // TODO# 23: Burn NFT from the collection
+        public entry fun burn_nft(account: &signer, nft_id: u64) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(signer::address_of(account));
+
+            // Get the list of NFTs in the marketplace
+            let nfts = &mut marketplace.nfts;
+            let len = vector::length(nfts);
+            let mut_nft_found: bool = false;
+
+            // Loop through the NFTs to find the one to burn
+            let mut_i = 0;
+            while (mut_i < len) {
+                let nft = vector::borrow(nfts, mut_i);
+                if (nft.id == nft_id) {
+                    // Remove the NFT if found
+                    vector::remove(nfts, mut_i);
+                    mut_nft_found = true;
+                    break
+                };
+                mut_i = mut_i + 1;
+            };
+
+            // If NFT not found, abort the transaction with custom error
+            if (!mut_nft_found) {
+                abort 0x1 // Custom error code for NFT not found
+            }
+        }
+
+        // TODO# 24: Tip or Donate to Creator
+        public entry fun tip_creator(account: &signer, marketplace_addr: address, nft_id: u64, tip_amount: u64) acquires Marketplace {
+            // Use borrow_global_mut to get a mutable reference to the Marketplace
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+
+            // Now you can safely borrow a mutable reference to the NFT within the marketplace
+            let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
+
+            // Ensure that the tipper is not trying to tip themselves
+            assert!(nft_ref.creator != signer::address_of(account), 600); // Can't tip yourself
+
+            // Ensure the tip amount is positive
+            assert!(tip_amount > 0, 601); // Tip amount must be positive
+
+            // Transfer the tip to the creator
+            coin::transfer<aptos_coin::AptosCoin>(account, nft_ref.creator, tip_amount);
+        }
+
 
     }
 }

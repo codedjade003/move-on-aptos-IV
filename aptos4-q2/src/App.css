@@ -36,3 +36,73 @@
     transform: rotate(360deg);
   }
 }
+.tip-jar-icon {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+}
+
+.tip-jar-img {
+  width: 100%;
+  height: auto;
+}
+
+.coin-animation {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.5rem;
+  color: gold;
+}
+
+.tip-modal {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.tip-modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.suggested-amounts button {
+  margin: 5px;
+  padding: 10px 20px;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.suggested-amounts button.selected {
+  background: #0056b3;
+}
+
+.custom-tip-input {
+  margin: 10px 0;
+  padding: 8px;
+  width: calc(100% - 20px);
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.send-tip-btn {
+  background: #28a745;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
