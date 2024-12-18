@@ -30,7 +30,7 @@ To run the app locally, follow these steps:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/nft-marketplace.git
+   git clone https://github.com/codedjade003/move-on-aptos-IV.git
    cd aptos4-q2
    ```
 
