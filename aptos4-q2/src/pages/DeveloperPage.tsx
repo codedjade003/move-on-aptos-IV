@@ -318,13 +318,15 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
         </div>
   
         {/* Pagination */}
-        <Pagination
-          current={currentPage}
-          pageSize={pageSize}
-          total={totalNFTs}
-          onChange={(page) => setCurrentPage(page)}
-          style={{ marginTop: "30px" }}
-        />
+    <div style={{ marginTop: 30, marginBottom: 30 }}>
+      <Pagination
+        current={currentPage}
+        pageSize={pageSize}
+        total={totalNFTs}
+        onChange={(page) => setCurrentPage(page)}
+        style={{ display: "flex", justifyContent: "center" }}
+      />
+    </div>
   
         {/* Bulk Transfer Section */}
         <div style={{ marginTop: "40px", textAlign: "center" }}>
