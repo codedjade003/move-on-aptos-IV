@@ -27,7 +27,7 @@ const DeveloperPage: React.FC = () => {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [totalNFTs, setTotalNFTs] = useState(0);
   const { account, signAndSubmitTransaction } = useWallet();
-  const marketplaceAddr = "0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9";
+  const marketplaceAddr = "0xd173e7ef18739a76f04923d76e641ca1b5f1ea64bbd9147dda8a4b62f87910ae";
 
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
@@ -159,33 +159,6 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
   
 
   const paginatedNFTs = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const [nftIdToBurn, setNftIdToBurn] = useState<number | null>(null); // Temporary state for NFT ID to burn
-  const tempHandleBurnNFTClick = async () => {
-    if (nftIdToBurn === null) {
-      message.error("Please enter a valid NFT ID to burn.");
-      return;
-    }
-  
-    try {
-      // Call the burn NFT function with the inputted ID
-      const entryFunctionPayload = {
-        type: "entry_function_payload",
-        function: `${marketplaceAddr}::NFTMarketplace::burn_nft`,
-        type_arguments: [],
-        arguments: [nftIdToBurn], // Pass the NFT ID to burn
-      };
-  
-      const txnResponse = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
-      await client.waitForTransaction(txnResponse.hash);
-  
-      message.success("NFT burned successfully!");
-      fetchUserNFTs(); // Refresh the NFT list after burning
-    } catch (error) {
-      console.error("Error burning NFT:", error);
-      message.error("Failed to burn NFT.");
-    }
-  };
-
   const handleBulkTransferNFTs = async (recipient: string, nftIds: number[]) => {
     if (!recipient) {
       message.error("Recipient address is required.");
@@ -297,37 +270,7 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
             </Col>
           ))}
         </Row>
-  
-        {/* Burn NFT Section */}
-        <div style={{ marginTop: "30px", textAlign: "center" }}>
-          <Title level={5}>
-            Note: This function is buggy and not fully developed. Using this function may cause NFTs to display incorrectly.
-          </Title>
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "10px" }}>
-            <Input
-              type="number"
-              placeholder="Enter NFT ID to burn"
-              value={nftIdToBurn ?? ""}
-              onChange={(e) => setNftIdToBurn(Number(e.target.value))}
-              style={{ width: 200 }}
-            />
-            <Button type="primary" onClick={tempHandleBurnNFTClick}>
-              Burn NFT
-            </Button>
-          </div>
         </div>
-  
-        {/* Pagination */}
-    <div style={{ marginTop: 30, marginBottom: 30 }}>
-      <Pagination
-        current={currentPage}
-        pageSize={pageSize}
-        total={totalNFTs}
-        onChange={(page) => setCurrentPage(page)}
-        style={{ display: "flex", justifyContent: "center" }}
-      />
-    </div>
-  
         {/* Bulk Transfer Section */}
         <div style={{ marginTop: "40px", textAlign: "center" }}>
           <Title level={4}>Bulk Transfer NFTs</Title>
@@ -358,8 +301,18 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
             </Form.Item>
           </Form>
         </div>
-      </div>
+  
+        {/* Pagination */}
+    <div style={{ marginTop: 30, marginBottom: 30 }}>
+      <Pagination
+        current={currentPage}
+        pageSize={pageSize}
+        total={totalNFTs}
+        onChange={(page) => setCurrentPage(page)}
+        style={{ display: "flex", justifyContent: "center" }}
+      />
     </div>
+      </div>
   );
   
 };

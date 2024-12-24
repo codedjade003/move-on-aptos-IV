@@ -26,7 +26,7 @@ const MyNFTs: React.FC = () => {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [totalNFTs, setTotalNFTs] = useState(0);
   const { account, signAndSubmitTransaction } = useWallet();
-  const marketplaceAddr = "0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9";
+  const marketplaceAddr = "0xd173e7ef18739a76f04923d76e641ca1b5f1ea64bbd9147dda8a4b62f87910ae";
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -55,73 +55,72 @@ const MyNFTs: React.FC = () => {
 
   const fetchUserNFTs = useCallback(async () => {
     if (!account) return;
-  
-    try {
-      const filters: any = {};
-      if (selectedRarity) filters.rarity = selectedRarity;
-      if (onlyForSale) filters.onlyForSale = 1;
-      if (minPrice !== undefined) filters.minPrice = minPrice;
-      if (maxPrice !== undefined) filters.maxPrice = maxPrice;
-  
-      const nftIdsResponse = await client.view({
-        function: `${marketplaceAddr}::NFTMarketplace::get_all_nfts_for_owner`,
-        arguments: [marketplaceAddr, account.address, "100", "0"],
-        type_arguments: [],
-      });
-  
-      const nftIds = Array.isArray(nftIdsResponse[0]) ? nftIdsResponse[0] : nftIdsResponse;
-      console.log("Fetched NFT IDs:", nftIds); // Debugging log
-      setTotalNFTs(nftIds.length);
-  
-      const userNFTs = (await Promise.all(
-        nftIds.map(async (id) => {
-          try {
-            if (!id) {
-              console.warn(`Skipping invalid NFT ID: ${id}`);
-              return null;
-            }
-  
-            const nftDetails = await client.view({
-              function: `${marketplaceAddr}::NFTMarketplace::get_nft_details`,
-              arguments: [marketplaceAddr, id],
-              type_arguments: [],
-            });
-  
-            const [nftId, , name, description, uri, price, forSale, rarity, creator] = nftDetails as [
-              number,
-              string,
-              string,
-              string,
-              string,
-              number,
-              boolean,
-              number,
-              string
-            ];
-  
-            const hexToUtf8 = (hexString: string): string => {
-              const hexWithoutPrefix = hexString.startsWith("0x") ? hexString.slice(2) : hexString;
-              const bytes = new Uint8Array(hexWithoutPrefix.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
-              return new TextDecoder().decode(bytes);
-            };
-  
-            return {
-              id: nftId,
-              name: hexToUtf8(name),
-              description: hexToUtf8(description),
-              uri: hexToUtf8(uri),
-              rarity,
-              price: price / 100000000,
-              for_sale: forSale,
-              creator,
 
-            };
-          } catch (error) {
-            console.error(`Error fetching details for NFT ID ${id}:`, error);
-            return null;
-          }
-        })
-      )).filter((nft): nft is NFT => nft !== null);
+    try {
+        const filters: any = {};
+        if (selectedRarity) filters.rarity = selectedRarity;
+        if (onlyForSale) filters.onlyForSale = 1;
+        if (minPrice !== undefined) filters.minPrice = minPrice;
+        if (maxPrice !== undefined) filters.maxPrice = maxPrice;
+
+        const nftIdsResponse = await client.view({
+            function: `${marketplaceAddr}::NFTMarketplace::get_all_nfts_for_owner`,
+            arguments: [marketplaceAddr, account.address, "100", "0"],
+            type_arguments: [],
+        });
+
+        const nftIds = Array.isArray(nftIdsResponse[0]) ? nftIdsResponse[0] : nftIdsResponse;
+        console.log("Fetched NFT IDs:", nftIds); // Debugging log
+        setTotalNFTs(nftIds.length);
+
+        const userNFTs = (await Promise.all(
+            nftIds.map(async (id) => {
+                try {
+                    if (!id) {
+                        console.warn(`Skipping invalid NFT ID: ${id}`);
+                        return null;
+                    }
+
+                    const nftDetails = await client.view({
+                        function: `${marketplaceAddr}::NFTMarketplace::get_nft_details`,
+                        arguments: [marketplaceAddr, id],
+                        type_arguments: [],
+                    });
+
+                    const [nftId, , name, description, uri, price, forSale, rarity, creator] = nftDetails as [
+                        number,
+                        string,
+                        string,
+                        string,
+                        string,
+                        number,
+                        boolean,
+                        number,
+                        string
+                    ];
+
+                    const hexToUtf8 = (hexString: string): string => {
+                        const hexWithoutPrefix = hexString.startsWith("0x") ? hexString.slice(2) : hexString;
+                        const bytes = new Uint8Array(hexWithoutPrefix.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+                        return new TextDecoder().decode(bytes);
+                    };
+
+                    return {
+                        id: nftId,
+                        name: hexToUtf8(name),
+                        description: hexToUtf8(description),
+                        uri: hexToUtf8(uri),
+                        rarity,
+                        price: price / 100000000,
+                        for_sale: forSale,
+                        creator,
+                    };
+                } catch (error) {
+                    console.error(`Error fetching details for NFT ID ${id}:`, error);
+                    return null;
+                }
+            })
+        )).filter((nft): nft is NFT => nft !== null);
   
       console.log("Filtered NFTs:", userNFTs); // Debugging log
   
@@ -136,19 +135,41 @@ const MyNFTs: React.FC = () => {
         return matchesRarity && matchesSaleStatus && matchesPriceRange;
       });
   
-      setNfts(filteredNFTs);
-      console.log("Displayed NFTs:", filteredNFTs); // Debugging log
+      setNfts(userNFTs);
+      console.log("Displayed NFTs:", filteredNFTs);
     } catch (error) {
-      console.error("Error fetching NFTs:", error);
-      message.error("Failed to fetch your NFTs.");
+        console.error("Error fetching user NFTs:", error);
     }
-  }, [account, marketplaceAddr, selectedRarity, onlyForSale, minPrice, maxPrice]);
-  
+}, [account, client, selectedRarity, onlyForSale, minPrice, maxPrice, marketplaceAddr]);
+
   
   const [isTipModalVisible, setIsTipModalVisible] = useState(false);
   const [tipAmount, setTipAmount] = useState<string>("");
   const [selectedTipNFT, setSelectedTipNFT] = useState<NFT | null>(null);
 
+  const handleBurnClick = async (nft: NFT) => {
+    try {  
+      const entryFunctionPayload = {
+        type: "entry_function_payload",
+        function: `${marketplaceAddr}::NFTMarketplace::burn_nft`,
+        type_arguments: [],
+        arguments: [marketplaceAddr, nft.id],
+      };
+  
+      const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
+      await client.waitForTransaction(response.hash);
+  
+      message.success("NFT burned successfully!");
+      // Immediately remove burned NFT from state
+      setNfts((prevNfts) => prevNfts.filter((item) => item.id !== nft.id));
+    } catch (error) {
+      console.error("Error burning NFT:", error);
+      message.error("Failed to burn NFT.");
+    }
+  };
+  
+  
+  
   const handleTipClick = (nft: NFT) => {
     setSelectedTipNFT(nft);
     setIsTipModalVisible(true);
@@ -393,6 +414,9 @@ return (
               </Button>
               <Button type="default" block onClick={() => handleTipClick(nft)}>
                 Tip Creator
+              </Button>
+              <Button type="default" danger block onClick={() => handleBurnClick(nft)}>
+                Burn
               </Button>
             </div>
           </Card>

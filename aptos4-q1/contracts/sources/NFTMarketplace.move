@@ -1,5 +1,5 @@
 // TODO# 1: Define Module and Marketplace Address
-address 0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9 {
+address 0xcd4e1da68a35e46efe72a75527da8c45b29a73fa58cb005ada6671313cc9b22a {
 
     module NFTMarketplace {
         use 0x1::signer;
@@ -80,12 +80,16 @@ address 0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9 {
 
         // TODO# 9: View NFT Details
             #[view]
-            public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8, address) acquires Marketplace {
-                let marketplace = borrow_global<Marketplace>(marketplace_addr);
-                let nft = vector::borrow(&marketplace.nfts, nft_id);
+        public fun get_nft_details(marketplace_addr: address, nft_id: u64): (u64, address, vector<u8>, vector<u8>, vector<u8>, u64, bool, u8, address) acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            let nft = vector::borrow(&marketplace.nfts, nft_id);
 
-                (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity, nft.creator)
-            } 
+            // Ensure the NFT has not been burned
+            assert!(nft.owner != @0x0, 404); // NFT is burned or doesn't exist
+
+            (nft.id, nft.owner, nft.name, nft.description, nft.uri, nft.price, nft.for_sale, nft.rarity, nft.creator)
+        }
+
         
         // TODO# 10: List NFT for Sale
             public entry fun list_for_sale(account: &signer, marketplace_addr: address, nft_id: u64, price: u64) acquires Marketplace {
@@ -189,23 +193,24 @@ address 0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9 {
 
         // TODO# 17: Retrieve NFTs for Owner
             #[view]
-            public fun get_all_nfts_for_owner(marketplace_addr: address, owner_addr: address, limit: u64, offset: u64): vector<u64> acquires Marketplace {
-                let marketplace = borrow_global<Marketplace>(marketplace_addr);
-                let nft_ids = vector::empty<u64>();
+        public fun get_all_nfts_for_owner(marketplace_addr: address, owner_addr: address, limit: u64, offset: u64): vector<u64> acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            let nft_ids = vector::empty<u64>();
 
-                let nfts_len = vector::length(&marketplace.nfts);
-                let end = min(offset + limit, nfts_len);
-                let mut_i = offset;
-                while (mut_i < end) {
-                    let nft = vector::borrow(&marketplace.nfts, mut_i);
-                    if (nft.owner == owner_addr) {
-                        vector::push_back(&mut nft_ids, nft.id);
-                    };
-                    mut_i = mut_i + 1;
+            let nfts_len = vector::length(&marketplace.nfts);
+            let end = min(offset + limit, nfts_len);
+            let mut_i = offset;
+            while (mut_i < end) {
+                let nft = vector::borrow(&marketplace.nfts, mut_i);
+                if (nft.owner == owner_addr) {
+                    vector::push_back(&mut nft_ids, nft.id);
                 };
+                mut_i = mut_i + 1;
+            };
 
-                nft_ids
-            }
+            nft_ids
+        }
+
  
 
         // TODO# 18: Retrieve NFTs for Sale
@@ -314,32 +319,18 @@ address 0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9 {
 
 
         // TODO# 23: Burn NFT from the collection
-        public entry fun burn_nft(account: &signer, nft_id: u64) acquires Marketplace {
-            let marketplace = borrow_global_mut<Marketplace>(signer::address_of(account));
+        public entry fun burn_nft(account: &signer, marketplace_addr: address, nft_id: u64) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
 
-            // Get the list of NFTs in the marketplace
-            let nfts = &mut marketplace.nfts;
-            let len = vector::length(nfts);
-            let mut_nft_found: bool = false;
+            // Ensure the caller is the owner of the NFT
+            assert!(nft_ref.owner == signer::address_of(account), 400); // Caller is not the owner
 
-            // Loop through the NFTs to find the one to burn
-            let mut_i = 0;
-            while (mut_i < len) {
-                let nft = vector::borrow(nfts, mut_i);
-                if (nft.id == nft_id) {
-                    // Remove the NFT if found
-                    vector::remove(nfts, mut_i);
-                    mut_nft_found = true;
-                    break
-                };
-                mut_i = mut_i + 1;
-            };
-
-            // If NFT not found, abort the transaction with custom error
-            if (!mut_nft_found) {
-                abort 0x1 // Custom error code for NFT not found
-            }
+            // Remove the NFT using swap_remove to maintain efficiency
+            vector::swap_remove(&mut marketplace.nfts, nft_id);
         }
+
+
 
         // TODO# 24: Tip or Donate to Creator
         public entry fun tip_creator(account: &signer, marketplace_addr: address, nft_id: u64, tip_amount: u64) acquires Marketplace {

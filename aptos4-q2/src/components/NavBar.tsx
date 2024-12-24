@@ -17,7 +17,7 @@ interface NavBarProps {
   onMintNFTClick: () => void;
 }
 
-const TIP_RECEIVER_ADDRESS = "0x587c3baf114387ef77bdca8b51cf17ff6f05bc3b899fecbf42eaa3aac391ebc9";
+const TIP_RECEIVER_ADDRESS = "0xd173e7ef18739a76f04923d76e641ca1b5f1ea64bbd9147dda8a4b62f87910ae";
 
 const NavBar: React.FC<NavBarProps> = ({ onMintNFTClick }) => {
   const { connected, account, network, disconnect } = useWallet();
