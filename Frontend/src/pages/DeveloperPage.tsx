@@ -6,7 +6,6 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const { Title } = Typography;
 const { Meta } = Card;
-const yourBackgroundImage = "/images/aptos_wallpaper.jpg";
 
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
@@ -201,11 +200,48 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
     }
   };
 
+  const handleBurnAllClick = async () => {
+    try {
+      const entryFunctionPayload = {
+        type: "entry_function_payload",
+        function: `${marketplaceAddr}::NFTMarketplace::burn_all_nfts`,
+        type_arguments: [],
+        arguments: [marketplaceAddr],
+      };
+  
+      const response = await (window as any).aptos.signAndSubmitTransaction(entryFunctionPayload);
+      await client.waitForTransaction(response.hash);
+  
+      message.success("All NFTs burned successfully!");
+      // Update state to clear all NFTs from UI
+      setNfts([]);
+    } catch (error) {
+      console.error("Error burning all NFTs:", error);
+      message.error("Failed to burn all NFTs.");
+    }
+  };
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleBurnAll = async () => {
+    const confirmation = window.confirm(
+      "Are you sure you want to burn all your NFTs? This action cannot be undone."
+    );
+    if (!confirmation) return;
+
+    setIsLoading(true);
+    try {
+      await handleBurnAllClick();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+
   return (
     <div
       style={{
         textAlign: "center",
-        backgroundImage: `url(${yourBackgroundImage})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         padding: "20px",
@@ -253,54 +289,84 @@ const handleBulkMintNFTs = async (nfts: { name: string; description: string; uri
             style={{ width: 150 }}
           />
         </div>
-  
+        <button onClick={handleBurnAll} disabled={isLoading} >
+          {isLoading ? "Burning All NFTs..." : "Burn All NFTs"}
+        </button>
         {/* NFTs Grid */}
         <Row gutter={[24, 24]} style={{ marginTop: 20 }}>
-          {paginatedNFTs.map((nft) => (
-            <Col key={nft.id} xs={24} sm={12} md={8} lg={6}>
-              <Card
-                hoverable
-                cover={<img alt={nft.name} src={nft.uri} />}
-                actions={[]}
-                style={{ borderRadius: "10px", overflow: "hidden" }}
-              >
-                <Meta title={nft.name} description={`Rarity: ${nft.rarity}, Price: ${nft.price} APT`} />
-                <p>ID: {nft.id}</p>
-              </Card>
-            </Col>
-          ))}
+      {paginatedNFTs.map((nft) => (
+        <Col
+          key={nft.id}
+          xs={24} sm={12} md={8} lg={8} xl={6}
+          style={{
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <Card
+            hoverable
+            style={{
+              width: "100%",
+              maxWidth: "320px", // Increased maxWidth for larger cards
+              minWidth: "240px", // Adjusted for smaller screen compatibility
+              padding: "15px", // Added padding inside the card
+              margin: "0 auto",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)", // Added subtle shadow for better aesthetics
+            }}
+            cover={<img alt={nft.name} src={nft.uri} style={{ height: "200px", objectFit: "cover" }} />}
+          >
+            <Meta
+              title={<span style={{ fontSize: "16px", fontWeight: "bold" }}>{nft.name}</span>}
+              description={<p>Rarity: {nft.rarity}, Price: {nft.price} APT</p>}
+            />
+            <p style={{ marginTop: "10px" }}>ID: {nft.id}</p>
+            <p>{nft.description}</p>
+            <p style={{ margin: "10px 0" }}>For Sale: {nft.for_sale ? "Yes" : "No"}</p>
+            <p style={{ margin: "10px 0" }}>Royalty: 5%</p>
+          </Card>
+        </Col>
+      ))}
         </Row>
         </div>
-        {/* Bulk Transfer Section */}
-        <div style={{ marginTop: "40px", textAlign: "center" }}>
-          <Title level={4}>Bulk Transfer NFTs</Title>
-          <Form
-            layout="inline"
-            onFinish={(values: { recipient: string; ids: string }) =>
-              handleBulkTransferNFTs(values.recipient, values.ids.split(",").map((id) => Number(id) - 1))
-            }
-          >
-            <Form.Item
-              name="recipient"
-              rules={[{ required: true, message: "Please enter recipient address" }]}
-            >
-              <Input placeholder="Recipient Address" style={{ width: 300 }} />
-            </Form.Item>
-  
-            <Form.Item
-              name="ids"
-              rules={[{ required: true, message: "Enter NFT IDs separated by commas" }]}
-            >
-              <Input placeholder="NFT IDs (comma-separated)" style={{ width: 300 }} />
-            </Form.Item>
-  
-            <Form.Item>
-              <Button type="primary" htmlType="submit">
-                Transfer NFTs
-              </Button>
-            </Form.Item>
-          </Form>
-        </div>
+    {/* Bulk Transfer Section */}
+    <div
+      style={{
+        marginTop: "40px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Title level={4}>Bulk Transfer NFTs</Title>
+      <Form
+        layout="vertical"
+        style={{ textAlign: "center" }}
+        onFinish={(values: { recipient: string; ids: string }) =>
+          handleBulkTransferNFTs(values.recipient, values.ids.split(",").map((id) => Number(id) - 1))
+        }
+      >
+        <Form.Item
+          name="recipient"
+          rules={[{ required: true, message: "Please enter recipient address" }]}
+        >
+          <Input placeholder="Recipient Address" style={{ width: 300 }} />
+        </Form.Item>
+
+        <Form.Item
+          name="ids"
+          rules={[{ required: true, message: "Enter NFT IDs separated by commas" }]}
+        >
+          <Input placeholder="NFT IDs (comma-separated)" style={{ width: 300 }} />
+        </Form.Item>
+
+        <Form.Item>
+          <Button type="primary" htmlType="submit">
+            Transfer NFTs
+          </Button>
+        </Form.Item>
+      </Form>
+    </div>
   
         {/* Pagination */}
     <div style={{ marginTop: 30, marginBottom: 30 }}>

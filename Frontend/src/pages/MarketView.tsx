@@ -5,7 +5,6 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const { Title } = Typography;
 const { Meta } = Card;
-const yourBackgroundImage = "/images/aptos_wallpaper.jpg";
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
 
@@ -52,6 +51,20 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
+  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);  // Min price filter
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);  // Max price filter
+
+    // Default filter values
+    const defaultFilters = {
+      minPrice: undefined,
+      maxPrice: undefined,
+    };
+  
+    const handleResetFilters = () => {
+      setMinPrice(defaultFilters.minPrice);
+      setMaxPrice(defaultFilters.maxPrice);
+    };
+
 
   useEffect(() => {
     handleFetchNfts(undefined);
@@ -79,11 +92,16 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         description: new TextDecoder().decode(hexToUint8Array(nft.description.slice(2))),
         uri: new TextDecoder().decode(hexToUint8Array(nft.uri.slice(2))),
         price: nft.price / 100000000,
-      }));
+      })).filter((nft): nft is NFT => nft !== null);
 
       const filteredNfts = decodedNfts.filter(
-        (nft) => nft.for_sale && (selectedRarity === undefined || nft.rarity === selectedRarity)
+        (nft) =>
+          nft.for_sale && // Check if the NFT is for sale
+          (selectedRarity === undefined || nft.rarity === selectedRarity) && // Check rarity filter
+          (minPrice === undefined || nft.price >= minPrice) && // Check minimum price
+          (maxPrice === undefined || nft.price <= maxPrice) // Check maximum price
       );
+      
 
       setNfts(filteredNfts);
       setCurrentPage(1);
@@ -196,7 +214,6 @@ const [isTipModalVisible, setIsTipModalVisible] = useState(false);
     <div
     style={{
       textAlign: "center",
-      backgroundImage: `url(${yourBackgroundImage})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
       padding: "20px",
@@ -218,9 +235,35 @@ const [isTipModalVisible, setIsTipModalVisible] = useState(false);
         <Radio.Button value={1}>Common</Radio.Button>
         <Radio.Button value={2}>Uncommon</Radio.Button>
         <Radio.Button value={3}>Rare</Radio.Button>
-        <Radio.Button value={4}>Super Rare</Radio.Button>
+        <Radio.Button value={4}>Epic</Radio.Button>
         <Radio.Button value={5}>Legendary</Radio.Button>
       </Radio.Group>
+
+      <div style={{ margin: "20px 0" }}>
+        <Input
+            type="number"
+            placeholder="Min Price"
+            value={minPrice !== undefined ? minPrice : ""}
+            onChange={(e) => setMinPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+            style={{ marginRight: "10px", width: "120px" }}
+        />
+        <Input
+            type="number"
+            placeholder="Max Price"
+            value={maxPrice !== undefined ? maxPrice : ""}
+            onChange={(e) => setMaxPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+            style={{ width: "120px" }}
+        />
+        <Button
+            type="primary"
+            onClick={() => handleFetchNfts(rarity === "all" ? undefined : rarity)}
+            style={{ marginLeft: "10px" }}
+        >
+            Apply Filters
+        </Button>
+    </div>
+
+      
 
       <Row gutter={[24, 24]} style={{ marginTop: 20, width: "100%", justifyContent: "center", flexWrap: "wrap" }}>
         {paginatedNfts.map((nft) => (

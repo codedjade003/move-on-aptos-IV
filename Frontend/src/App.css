@@ -106,3 +106,13 @@
   border-radius: 5px;
   cursor: pointer;
 }
+
+body {
+  margin: 0;
+  padding: 0;
+  background-image: url('../public/aptos_wallpaper.jpg');
+  background-size: cover; /* Makes the image cover the entire screen */
+  background-repeat: no-repeat; /* Prevents tiling of the image */
+  background-attachment: fixed; /* Keeps the background fixed when scrolling */
+  background-position: center; /* Centers the image */
+}

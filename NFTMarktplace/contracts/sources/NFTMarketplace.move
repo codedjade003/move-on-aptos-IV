@@ -1,5 +1,5 @@
 // TODO# 1: Define Module and Marketplace Address
-address 0xcd4e1da68a35e46efe72a75527da8c45b29a73fa58cb005ada6671313cc9b22a {
+address 0xd173e7ef18739a76f04923d76e641ca1b5f1ea64bbd9147dda8a4b62f87910ae {
 
     module NFTMarketplace {
         use 0x1::signer;
@@ -329,6 +329,26 @@ address 0xcd4e1da68a35e46efe72a75527da8c45b29a73fa58cb005ada6671313cc9b22a {
             // Remove the NFT using swap_remove to maintain efficiency
             vector::swap_remove(&mut marketplace.nfts, nft_id);
         }
+
+        // TODO# 23.5: Burn all NFTs from the collection
+        public entry fun burn_all_nfts(account: &signer, marketplace_addr: address) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let caller_addr = signer::address_of(account);
+
+            // Iterate through all NFTs and remove those owned by the caller
+            let i = 0;
+            while (i < vector::length(&marketplace.nfts)) {
+                let nft_ref = vector::borrow(&marketplace.nfts, i);
+
+                if (nft_ref.owner == caller_addr) {
+                    // Remove the NFT using swap_remove for efficiency
+                    vector::swap_remove(&mut marketplace.nfts, i);
+                } else {
+                    i = i + 1; // Increment index only if no removal occurred
+                }
+            }
+        }
+
 
 
 

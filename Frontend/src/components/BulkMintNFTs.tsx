@@ -1,8 +1,15 @@
 import React, { useState } from "react";
 import { Form, Input, Select, Button, Card, Space, message } from "antd";
 
-const BulkMintNFTs = ({ onBulkMint }: { onBulkMint: (nfts: any[]) => void }) => {
-  const [nfts, setNFTs] = useState([
+type NFT = {
+  name: string;
+  description: string;
+  uri: string;
+  rarity: number;
+};
+
+const BulkMintNFTs = ({ onBulkMint }: { onBulkMint: (nfts: NFT[]) => void }) => {
+  const [nfts, setNFTs] = useState<NFT[]>([
     { name: "", description: "", uri: "", rarity: 1 },
   ]);
 
@@ -15,7 +22,7 @@ const BulkMintNFTs = ({ onBulkMint }: { onBulkMint: (nfts: any[]) => void }) => 
     setNFTs(updatedNFTs);
   };
 
-  const handleChange = (index: number, key: string, value: any) => {
+  const handleChange = <K extends keyof NFT>(index: number, key: K, value: NFT[K]) => {
     const updatedNFTs = [...nfts];
     updatedNFTs[index][key] = value;
     setNFTs(updatedNFTs);
