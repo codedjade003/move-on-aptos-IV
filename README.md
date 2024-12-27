@@ -15,7 +15,7 @@ NFTMarketplace is a blockchain-based platform designed for minting, buying, and 
 
 The project defines the following addresses:
 
-- *NFTMarketplace:* 0x6a7a7ce8593e4e127a11110a17e0e3b478dd5eb10a6b6b0b4581c29d6516e107
+- *NFTMarketplace:* 0xd173e7ef18739a76f04923d76e641ca1b5f1ea64bbd9147dda8a4b62f87910ae
 - *Aptos Framework:* 0x1
 - *Primitives:* 0xCAFE
 
